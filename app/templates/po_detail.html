@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ po.po_number }}{% endblock %}
+{% block content %}
+<h1>{{ po.po_number }} <small class="text-muted">to {{ po.supplier.name }}</small></h1>
+<p>
+  <span class="badge {{ 'text-bg-success' if po.status == 'RECEIVED' else 'text-bg-secondary' }}">{{ po.status }}</span>
+  &middot; created {{ po.created_at.strftime('%Y-%m-%d %H:%M') }} by {{ po.created_by }}
+  {% if po.run %} &middot; from <a href="{{ url_for('main.diff_view', run_id=po.run_id) }}">conversion run #{{ po.run_id }}</a>{% endif %}
+  {% if po.received_at %} &middot; received {{ po.received_at.strftime('%Y-%m-%d %H:%M') }} by {{ po.received_by }}{% endif %}
+</p>
+<p class="text-muted small">Supplier lead time: {{ po.supplier.lead_time_days }} day(s){% if po.supplier.contact %} &middot; {{ po.supplier.contact }}{% endif %}</p>
+
+<table class="table table-sm">
+  <thead><tr><th>Part</th><th>Quantity</th><th>Unit cost</th><th>Line total</th></tr></thead>
+  <tbody>
+  {% for line in po.lines %}
+    <tr>
+      <td><code>{{ line.part.part_number }}</code> {{ line.part.description }}</td>
+      <td>{{ "%.2f"|format(line.quantity) }}</td>
+      <td>${{ "%.2f"|format(line.unit_cost) }}</td>
+      <td>${{ "%.2f"|format(line.line_total) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><th colspan="3" class="text-end">Total</th><th>${{ "%.2f"|format(po.total_cost) }}</th></tr></tfoot>
+</table>
+
+{% if po.status == 'DRAFT' %}
+  {% if current_user and current_user.role in ['MFG_ENGINEER', 'APPROVER'] %}
+  <form method="post" action="{{ url_for('main.po_receive', po_id=po.id) }}">
+    {{ csrf_field() }}
+    <button class="btn btn-primary" type="submit">Mark received (adds to stock)</button>
+  </form>
+  {% else %}
+  <p class="text-muted small">Receiving requires the Manufacturing Engineer or Approver role. <a href="{{ url_for('main.login') }}">Log in</a>.</p>
+  {% endif %}
+{% endif %}
+
+<p class="mt-3"><a href="{{ url_for('main.erp_dashboard') }}">← Back to ERP</a></p>
+{% endblock %}

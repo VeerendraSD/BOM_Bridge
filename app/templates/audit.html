@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<h1>Audit Log</h1>
+<table class="table table-sm">
+  <thead><tr><th>Time</th><th>Entity</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr>
+      <td>{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ e.entity_type }} #{{ e.entity_id }}</td>
+      <td><span class="badge text-bg-secondary">{{ e.action }}</span></td>
+      <td>{{ e.actor }}</td>
+      <td>{{ e.detail }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

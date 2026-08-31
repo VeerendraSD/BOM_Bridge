@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: bom-bridge
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: 'gunicorn "app:create_app()" --bind 0.0.0.0:$PORT'
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false  # set manually in the Render dashboard if you want the real GenAI draft path

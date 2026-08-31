@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ order.so_number }}{% endblock %}
+{% block content %}
+<h1>{{ order.so_number }} <small class="text-muted">{{ "%.0f"|format(order.quantity) }}x {{ order.part.part_number }} for {{ order.customer.name }}</small></h1>
+<p>
+  <span class="badge {{ 'text-bg-success' if order.status == 'FULFILLED' else ('text-bg-info' if order.status == 'IN_PRODUCTION' else ('text-bg-danger' if order.status == 'CANCELLED' else 'text-bg-secondary')) }}">
+    {{ order.status }}
+  </span>
+  &middot; customer <strong>{{ order.customer.name }}</strong> <span class="badge text-bg-light">{{ order.customer.region }}</span>
+  {% if order.customer.country %}({{ order.customer.country }}){% endif %}
+  &middot; created {{ order.created_at.strftime('%Y-%m-%d %H:%M') }} by {{ order.created_by }}
+  {% if order.promised_date %} &middot; promised {{ order.promised_date }}{% endif %}
+</p>
+<p>{{ order.part.description }}</p>
+
+{% if order.run %}
+<p>Linked to <a href="{{ url_for('main.diff_view', run_id=order.run_id) }}">conversion run #{{ order.run_id }}</a>
+   — its purchase/work orders are visible on the <a href="{{ url_for('main.erp_dashboard') }}">ERP dashboard</a>.</p>
+{% else %}
+<p class="text-muted">Not yet linked to a conversion run.</p>
+{% endif %}
+
+<div class="d-flex gap-2">
+{% if order.status == 'NEW' %}
+  {% if current_user and current_user.role in ['ENGINEER', 'MFG_ENGINEER'] %}
+  <form method="post" action="{{ url_for('main.sales_order_produce', order_id=order.id) }}">
+    <button class="btn btn-primary" type="submit">Produce (convert to mBOM &amp; generate ERP documents)</button>
+    {{ csrf_field() }}
+  </form>
+  {% else %}
+  <p class="text-muted small">Producing requires the Engineer or Manufacturing Engineer role. <a href="{{ url_for('main.login') }}">Log in</a>.</p>
+  {% endif %}
+{% elif order.status == 'IN_PRODUCTION' %}
+  {% if current_user and current_user.role in ['MFG_ENGINEER', 'APPROVER'] %}
+  <form method="post" action="{{ url_for('main.sales_order_fulfill', order_id=order.id) }}">
+    <button class="btn btn-success" type="submit">Mark fulfilled</button>
+    {{ csrf_field() }}
+  </form>
+  {% else %}
+  <p class="text-muted small">Marking fulfilled requires the Manufacturing Engineer or Approver role. <a href="{{ url_for('main.login') }}">Log in</a>.</p>
+  {% endif %}
+{% elif order.status == 'FULFILLED' %}
+  <p class="text-success">Fulfilled {{ order.fulfilled_at.strftime('%Y-%m-%d %H:%M') }} by {{ order.fulfilled_by }}.</p>
+{% endif %}
+</div>
+
+<p class="mt-3"><a href="{{ url_for('main.crm_dashboard') }}">← Back to CRM</a></p>
+{% endblock %}

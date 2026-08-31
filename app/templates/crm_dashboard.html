@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}CRM{% endblock %}
+{% block content %}
+<h1 class="mb-1">CRM &amp; order book</h1>
+<p class="text-muted mb-4">Customers and sales orders — the demand side of the same pipeline the rest of the app
+   builds. "Produce" an order and it runs a real conversion + ERP-document generation, the same as from a part's page.</p>
+
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Customers</h6><h3>{{ customers|length }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Sales orders</h6><h3>{{ orders|length }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Order book by status</h6>
+      <div>
+      {% for status, count in by_status.items() %}
+        <span class="badge {{ 'text-bg-success' if status == 'FULFILLED' else ('text-bg-info' if status == 'IN_PRODUCTION' else ('text-bg-danger' if status == 'CANCELLED' else 'text-bg-secondary')) }} me-1">
+          {{ status }}: {{ count }}
+        </span>
+      {% else %}
+        <span class="text-muted">No orders yet.</span>
+      {% endfor %}
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-6">
+    <h6>Order volume: domestic vs. overseas</h6>
+    {% for region, qty in by_region.items() %}
+    <div class="mb-2">
+      <div class="d-flex justify-content-between small"><span>{{ region }}</span><span>{{ "%.0f"|format(qty) }} unit(s)</span></div>
+      <div class="progress" style="height: 8px;">
+        <div class="progress-bar {{ 'bg-info' if region == 'OVERSEAS' else 'bg-primary' }}" style="width: {{ (qty / region_total * 100)|round(1) }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="col-md-6">
+    <h6>Top ordered assemblies</h6>
+    <table class="table table-sm">
+      <tbody>
+      {% for r in by_part %}
+        <tr><td><code>{{ r.part.part_number }}</code> {{ r.part.description }}</td><td class="text-end">{{ "%.0f"|format(r.total_qty) }} unit(s)</td></tr>
+      {% else %}
+        <tr><td class="text-muted">No orders yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h5>Customers</h5>
+<table class="table table-sm table-hover mb-2">
+  <thead><tr><th>Name</th><th>Region</th><th>Country</th><th>Orders</th><th>Total qty ordered</th></tr></thead>
+  <tbody>
+  {% for c in by_customer %}
+    <tr>
+      <td>{{ c.customer.name }}</td>
+      <td><span class="badge text-bg-light">{{ c.customer.region }}</span></td>
+      <td>{{ c.customer.country or '-' }}</td>
+      <td>{{ c.order_count }}</td>
+      <td>{{ "%.0f"|format(c.total_qty) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="text-muted">No customers yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<form method="post" action="{{ url_for('main.customer_create') }}" class="row g-2 mb-4">
+  <div class="col-md-3"><input class="form-control form-control-sm" name="name" placeholder="Customer name" required></div>
+  <div class="col-md-2">
+    <select class="form-select form-select-sm" name="region">
+      <option value="DOMESTIC">Domestic</option>
+      <option value="OVERSEAS">Overseas</option>
+    </select>
+  </div>
+  <div class="col-md-2"><input class="form-control form-control-sm" name="country" placeholder="Country"></div>
+  <div class="col-md-3"><input class="form-control form-control-sm" name="contact_email" type="email" placeholder="Contact email"></div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary btn-sm w-100" type="submit">Add customer</button></div>
+  {{ csrf_field() }}
+</form>
+{% if not current_user %}<p class="text-muted small">Adding a customer or order requires being logged in. <a href="{{ url_for('main.login') }}">Log in</a>.</p>{% endif %}
+
+<h5 class="mt-4">Sales orders</h5>
+<table class="table table-sm table-hover mb-2">
+  <thead><tr><th>SO #</th><th>Customer</th><th>Assembly</th><th>Qty</th><th>Status</th><th>Promised</th><th></th></tr></thead>
+  <tbody>
+  {% for o in orders %}
+    <tr>
+      <td><code>{{ o.so_number }}</code></td>
+      <td>{{ o.customer.name }} <span class="badge text-bg-light">{{ o.customer.region }}</span></td>
+      <td><code>{{ o.part.part_number }}</code></td>
+      <td>{{ "%.0f"|format(o.quantity) }}</td>
+      <td>
+        <span class="badge {{ 'text-bg-success' if o.status == 'FULFILLED' else ('text-bg-info' if o.status == 'IN_PRODUCTION' else ('text-bg-danger' if o.status == 'CANCELLED' else 'text-bg-secondary')) }}">
+          {{ o.status }}
+        </span>
+      </td>
+      <td>{{ o.promised_date or '-' }}</td>
+      <td><a href="{{ url_for('main.sales_order_detail', order_id=o.id) }}">View →</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-muted">No sales orders yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if customers %}
+<form method="post" action="{{ url_for('main.sales_order_create') }}" class="row g-2">
+  <div class="col-md-3">
+    <select class="form-select form-select-sm" name="customer_id" required>
+      {% for c in customers %}<option value="{{ c.id }}">{{ c.name }} ({{ c.region }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select form-select-sm" name="part_id" required>
+      {% for p in parts %}<option value="{{ p.id }}">{{ p.part_number }} — {{ p.description }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><input class="form-control form-control-sm" name="quantity" type="number" min="1" step="1" value="1" placeholder="Qty" required></div>
+  <div class="col-md-2"><input class="form-control form-control-sm" name="promised_date" type="date"></div>
+  <div class="col-md-2"><button class="btn btn-primary btn-sm w-100" type="submit">Create sales order</button></div>
+  {{ csrf_field() }}
+</form>
+{% else %}
+<p class="text-muted">Add a customer above before creating a sales order.</p>
+{% endif %}
+{% endblock %}

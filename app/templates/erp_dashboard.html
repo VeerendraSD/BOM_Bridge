@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}ERP{% endblock %}
+{% block content %}
+<h1 class="mb-1">ERP</h1>
+<p class="text-muted mb-4">Inventory, purchase orders, and work orders — generated from a conversion run's mBOM
+   (see a run's diff view), and the only things allowed to move stock: receiving a PO adds it, completing a
+   work order consumes components and adds the finished assembly.</p>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Items below reorder point</h6><h3>{{ low_stock|length }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Open purchase orders</h6>
+      <h3>{{ purchase_orders|selectattr('status', 'equalto', 'DRAFT')|list|length }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Open work orders</h6>
+      <h3>{{ work_orders|rejectattr('status', 'equalto', 'COMPLETE')|list|length }}</h3>
+    </div></div>
+  </div>
+</div>
+
+<h5>Inventory</h5>
+<table class="table table-sm table-hover">
+  <thead><tr><th>Part</th><th>On hand</th><th>Reorder point</th><th>UoM</th><th>Unit cost</th><th>Preferred supplier</th><th></th></tr></thead>
+  <tbody>
+  {% for inv in inventory %}
+    <tr class="{{ 'table-danger' if inv.below_reorder_point else '' }}">
+      <td><code>{{ inv.part.part_number }}</code> {{ inv.part.description }}</td>
+      <td>{{ "%.2f"|format(inv.on_hand_qty) }}</td>
+      <td>{{ "%.2f"|format(inv.reorder_point) }}</td>
+      <td>{{ inv.uom }}</td>
+      <td>${{ "%.2f"|format(inv.unit_cost) }}</td>
+      <td>{{ inv.preferred_supplier.name if inv.preferred_supplier else '-' }}</td>
+      <td>{% if inv.below_reorder_point %}<span class="badge text-bg-danger">Below reorder point</span>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-muted">No inventory records yet — generate ERP documents from a conversion run's diff view.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h5 class="mt-4">Purchase orders</h5>
+<table class="table table-sm table-hover">
+  <thead><tr><th>PO #</th><th>Supplier</th><th>Lines</th><th>Total cost</th><th>Status</th><th>Created</th><th></th></tr></thead>
+  <tbody>
+  {% for po in purchase_orders %}
+    <tr>
+      <td><code>{{ po.po_number }}</code></td>
+      <td>{{ po.supplier.name }}</td>
+      <td>{{ po.lines|length }}</td>
+      <td>${{ "%.2f"|format(po.total_cost) }}</td>
+      <td><span class="badge {{ 'text-bg-success' if po.status == 'RECEIVED' else 'text-bg-secondary' }}">{{ po.status }}</span></td>
+      <td>{{ po.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td><a href="{{ url_for('main.po_detail', po_id=po.id) }}">View →</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-muted">No purchase orders yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h5 class="mt-4">Work orders</h5>
+<table class="table table-sm table-hover">
+  <thead><tr><th>WO #</th><th>Part</th><th>Quantity</th><th>Work center</th><th>Status</th><th>Created</th><th></th></tr></thead>
+  <tbody>
+  {% for wo in work_orders %}
+    <tr>
+      <td><code>{{ wo.wo_number }}</code></td>
+      <td><code>{{ wo.part.part_number }}</code> {{ wo.part.description }}</td>
+      <td>{{ "%.2f"|format(wo.quantity) }}</td>
+      <td>{{ wo.work_center or '-' }}</td>
+      <td>
+        <span class="badge {{ 'text-bg-success' if wo.status == 'COMPLETE' else ('text-bg-info' if wo.status == 'RELEASED' else 'text-bg-secondary') }}">
+          {{ wo.status }}
+        </span>
+      </td>
+      <td>{{ wo.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td><a href="{{ url_for('main.wo_detail', wo_id=wo.id) }}">View →</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-muted">No work orders yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

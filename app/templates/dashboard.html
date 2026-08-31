@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="mb-1">BOM Bridge</h1>
+<p class="text-muted mb-4">eBOM → mBOM harmonization platform &mdash; PDM-lite + configurable conversion engine</p>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Parts</h6><h3>{{ parts|length }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Conversion runs</h6><h3>{{ recent_runs|length }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Pending ECRs</h6><h3>{{ pending_ecrs }}</h3>
+    </div></div>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Open sales orders</h6><h3>{{ open_orders }}</h3>
+      <a href="{{ url_for('main.crm_dashboard') }}" class="small">View CRM →</a>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card"><div class="card-body">
+      <h6 class="text-muted">Items below reorder point</h6><h3>{{ low_stock }}</h3>
+      <a href="{{ url_for('main.erp_dashboard') }}" class="small">View ERP →</a>
+    </div></div>
+  </div>
+</div>
+
+<h5>Parts</h5>
+<table class="table table-sm table-hover">
+  <thead><tr><th>Part #</th><th>Description</th><th>Type</th><th>Status</th><th>Rev</th><th></th></tr></thead>
+  <tbody>
+  {% for p in parts %}
+    <tr>
+      <td><code>{{ p.part_number }}</code></td>
+      <td>{{ p.description }}</td>
+      <td><span class="badge text-bg-secondary">{{ p.part_type }}</span></td>
+      <td>{{ p.status }}</td>
+      <td>{{ p.current_revision.rev_code if p.current_revision else '-' }}</td>
+      <td><a href="{{ url_for('main.part_detail', part_id=p.id) }}">View BOM →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if recent_runs %}
+<h5 class="mt-4">Recent conversion runs</h5>
+<ul class="list-group">
+  {% for run in recent_runs %}
+  <li class="list-group-item d-flex justify-content-between">
+    <span>{{ run.root_part.part_number }} — {{ run.created_at.strftime('%Y-%m-%d %H:%M') }} by {{ run.created_by }}</span>
+    <a href="{{ url_for('main.diff_view', run_id=run.id) }}">View diff →</a>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

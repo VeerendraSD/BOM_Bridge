@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ wo.wo_number }}{% endblock %}
+{% block content %}
+<h1>{{ wo.wo_number }} <small class="text-muted">build {{ "%.2f"|format(wo.quantity) }}x {{ wo.part.part_number }}</small></h1>
+<p>
+  <span class="badge {{ 'text-bg-success' if wo.status == 'COMPLETE' else ('text-bg-info' if wo.status == 'RELEASED' else 'text-bg-secondary') }}">{{ wo.status }}</span>
+  &middot; work center <strong>{{ wo.work_center or '-' }}</strong>
+  &middot; created {{ wo.created_at.strftime('%Y-%m-%d %H:%M') }} by {{ wo.created_by }}
+  {% if wo.run %} &middot; from <a href="{{ url_for('main.diff_view', run_id=wo.run_id) }}">conversion run #{{ wo.run_id }}</a>{% endif %}
+  {% if wo.completed_at %} &middot; completed {{ wo.completed_at.strftime('%Y-%m-%d %H:%M') }} by {{ wo.completed_by }}{% endif %}
+</p>
+<p>{{ wo.part.description }}</p>
+
+<h5>Components consumed per unit built <span class="text-muted small">(from this run's mBOM, direct children of {{ wo.part.part_number }})</span></h5>
+<table class="table table-sm">
+  <thead><tr><th>Part</th><th>Qty per unit</th><th>Total for this work order</th></tr></thead>
+  <tbody>
+  {% for c in components %}
+    <tr>
+      <td><code>{{ c.child.part_number }}</code> {{ c.child.description }}</td>
+      <td>{{ "%.2f"|format(c.quantity) }}</td>
+      <td>{{ "%.2f"|format(c.quantity * wo.quantity) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3" class="text-muted">No component lines found under this part for this run.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if wo.status != 'COMPLETE' %}
+  {% if current_user and current_user.role == 'MFG_ENGINEER' %}
+    {% if wo.status == 'PLANNED' %}
+    <form method="post" action="{{ url_for('main.wo_release', wo_id=wo.id) }}" class="d-inline">
+      {{ csrf_field() }}
+      <button class="btn btn-outline-primary" type="submit">Release to shop floor</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('main.wo_complete', wo_id=wo.id) }}" class="d-inline">
+      {{ csrf_field() }}
+      <button class="btn btn-primary" type="submit">Complete (consume components, add finished stock)</button>
+    </form>
+  {% else %}
+  <p class="text-muted small">Releasing/completing requires the Manufacturing Engineer role. <a href="{{ url_for('main.login') }}">Log in</a>.</p>
+  {% endif %}
+{% endif %}
+
+<p class="mt-3"><a href="{{ url_for('main.erp_dashboard') }}">← Back to ERP</a></p>
+{% endblock %}

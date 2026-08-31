@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}ECRs{% endblock %}
+{% block content %}
+<h1>Engineering Change Requests</h1>
+<p class="text-muted">A released part changes only through an approved ECR — approving one bumps the part's revision and is logged to the audit trail.</p>
+
+<form method="post" action="{{ url_for('main.ecr_create') }}" id="ecr-form" class="row g-2 mb-1">
+  {{ csrf_field() }}
+  <div class="col-md-3">
+    <label class="form-label">Part</label>
+    <select class="form-select" name="part_id" id="ecr-part-select" required>
+      {% for p in parts %}<option value="{{ p.id }}">{{ p.part_number }} — {{ p.description }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Rough note <span class="text-muted">(optional, for AI drafting)</span></label>
+    <input class="form-control" id="ecr-rough-note" placeholder="e.g. switch to ductile iron, vibration issue">
+  </div>
+  <div class="col-md-1 d-flex align-items-end">
+    <button class="btn btn-outline-secondary w-100" type="button" id="ecr-draft-btn">✨ Draft</button>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Change description</label>
+    <textarea class="form-control" name="description" id="ecr-description" rows="2" required></textarea>
+    <span class="small text-muted" id="ecr-draft-source"></span>
+  </div>
+  <div class="col-md-12 mt-2">
+    <button class="btn btn-primary" type="submit">Submit ECR{% if current_user %} as {{ current_user.name }}{% endif %}</button>
+  </div>
+</form>
+{% if not current_user or current_user.role not in ['ENGINEER', 'MFG_ENGINEER'] %}
+<p class="text-muted small">Submitting requires the Engineer or Manufacturing Engineer role. <a href="{{ url_for('main.login') }}">Log in</a>.</p>
+{% endif %}
+
+<script>
+document.getElementById('ecr-draft-btn').addEventListener('click', async function () {
+  const btn = this;
+  const partId = document.getElementById('ecr-part-select').value;
+  const roughNote = document.getElementById('ecr-rough-note').value;
+  const sourceLabel = document.getElementById('ecr-draft-source');
+  if (!roughNote.trim()) { sourceLabel.textContent = 'Enter a rough note first.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Drafting…';
+  try {
+    const resp = await fetch("{{ url_for('main.ecr_draft') }}", {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({part_id: partId, rough_note: roughNote}),
+    });
+    if (!resp.ok) { sourceLabel.textContent = 'Could not draft (are you logged in with the right role?).'; return; }
+    const data = await resp.json();
+    document.getElementById('ecr-description').value = data.description;
+    sourceLabel.textContent = data.source === 'llm' ? '✨ Drafted by Claude' : 'Drafted from template (no ANTHROPIC_API_KEY set)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ Draft';
+  }
+});
+</script>
+
+<table class="table table-sm">
+  <thead><tr><th>#</th><th>Part</th><th>Description</th><th>Requested by</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for ecr in ecrs %}
+    <tr>
+      <td>{{ ecr.id }}</td>
+      <td><code>{{ ecr.part.part_number }}</code></td>
+      <td>{{ ecr.description }}</td>
+      <td>{{ ecr.requested_by }}</td>
+      <td>
+        <span class="badge {{ 'text-bg-success' if ecr.status == 'APPROVED' else ('text-bg-danger' if ecr.status == 'REJECTED' else 'text-bg-secondary') }}">
+          {{ ecr.status }}
+        </span>
+      </td>
+      <td>
+        {% if ecr.status == 'PENDING' %}
+          {% if current_user and current_user.role == 'APPROVER' %}
+          <form method="post" action="{{ url_for('main.ecr_approve', ecr_id=ecr.id) }}" class="d-inline">
+            {{ csrf_field() }}
+            <button class="btn btn-sm btn-success" type="submit">Approve</button>
+          </form>
+          <form method="post" action="{{ url_for('main.ecr_reject', ecr_id=ecr.id) }}" class="d-inline">
+            {{ csrf_field() }}
+            <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+          </form>
+          {% else %}
+          <span class="text-muted small">Approver role required</span>
+          {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

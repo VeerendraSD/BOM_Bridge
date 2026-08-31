@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ part.part_number }}{% endblock %}
+
+{% macro render_node(node) %}
+  <li>
+    <code>{{ node.part.part_number }}</code> — {{ node.part.description }}
+    <span class="badge text-bg-light">{{ node.part.part_type }}</span>
+    {% if node.children %}
+    <ul>
+      {% for c in node.children %}
+      <li>
+        <strong>{{ c.quantity }}x</strong>
+        {{ render_node(c.node) }}
+        {% if c.ref %}<span class="text-muted small">({{ c.ref }})</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </li>
+{% endmacro %}
+
+{% block content %}
+<h1>{{ part.part_number }} <small class="text-muted">rev {{ part.current_revision.rev_code if part.current_revision else '-' }}</small></h1>
+<p>{{ part.description }} &middot; <span class="badge text-bg-secondary">{{ part.part_type }}</span> &middot; {{ part.status }}</p>
+
+<div class="row">
+  <div class="col-md-7">
+    <h5>eBOM structure</h5>
+    <ul class="bom-tree">
+      {{ render_node(tree) }}
+    </ul>
+
+    <form method="post" action="{{ url_for('main.convert_part', part_id=part.id) }}" class="mt-3 d-inline">
+      {{ csrf_field() }}
+      <button class="btn btn-primary" type="submit">Convert to mBOM</button>
+    </form>
+
+    <form method="post" action="{{ url_for('main.import_ebom', part_id=part.id) }}" enctype="multipart/form-data" class="mt-3 d-flex gap-2 align-items-center">
+      {{ csrf_field() }}
+      <input type="file" name="file" accept=".csv" class="form-control form-control-sm" style="max-width: 260px;" required>
+      <button class="btn btn-outline-secondary btn-sm" type="submit">Import eBOM CSV under this part</button>
+    </form>
+    <p class="text-muted small mt-1">CSV columns: child_part_number, child_description, child_part_type, quantity, reference_designator</p>
+  </div>
+
+  <div class="col-md-5">
+    <h5>Conversion runs</h5>
+    {% if runs %}
+    <ul class="list-group">
+      {% for run in runs %}
+      <li class="list-group-item d-flex justify-content-between">
+        {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}
+        <a href="{{ url_for('main.diff_view', run_id=run.id) }}">View diff →</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted">No conversions yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

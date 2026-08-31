@@ -1,0 +1,3 @@
+child_part_number,child_description,child_part_type,quantity,reference_designator
+THERMAL-SENSOR-001,Motor Thermal Sensor,COMPONENT,1,M3
+COOLING-FAN-001,Motor Cooling Fan,COMPONENT,1,M4
