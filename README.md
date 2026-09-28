@@ -143,26 +143,6 @@ the same pipeline run from a sales order, then log back in as Ravi Shah and
 grow. To try the real GenAI draft (not the template fallback), set
 `ANTHROPIC_API_KEY` before running `python run.py`.
 
-## Deploying it
-
-The repo is deploy-ready for [Render](https://render.com)'s free tier:
-
-1. Push this repo to GitHub.
-2. In Render, **New → Blueprint**, point it at the repo — `render.yaml` at
-   the root configures the service, build command, and start command
-   automatically. (Or configure a Web Service manually with build command
-   `pip install -r requirements.txt` and start command
-   `gunicorn "app:create_app()" --bind 0.0.0.0:$PORT`.)
-3. Optionally set `ANTHROPIC_API_KEY` in the dashboard to enable the real
-   GenAI draft path instead of the template fallback.
-4. The default SQLite database resets on every redeploy (most free hosts have
-   ephemeral disks) — fine for a demo. To persist data, add a managed Postgres
-   instance, add `psycopg[binary]` to `requirements.txt`, and set
-   `DATABASE_URL` — `app/__init__.py` already reads it with no other code change.
-
-`gunicorn` only runs on Linux/macOS (no `fcntl` on Windows) — for local dev
-keep using `python run.py`; the Procfile/render.yaml are for the deployed host.
-
 ## Known simplifications (and what I'd do next)
 
 - No real CAD file parsing — eBOM import is simulated; a production version
